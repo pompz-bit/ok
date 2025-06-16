@@ -1,6 +1,9 @@
 #!/usr/bin/env perl
 # Win32 Perl script launcher
-# This file is meant to be compiled by PerlApp. It acts like a mini-Perl interpreter.
+# This file is meant to be compiled into a standalone executable.
+# It originally targeted PerlApp from the discontinued ActiveState PDK,
+# but can also be packed with PAR::Packer's `pp` tool. It acts like a
+# mini-Perl interpreter.
 #
 # Your script's initialization and main loop code should be placed in a function
 # called __start() in the main package. That function will be called by this
@@ -39,14 +42,14 @@ use strict;
 use Config;
 
 if ($^O ne 'MSWin32') {
-	# We are not on Windows, so tell the user about it
-	print "\nThis file is meant to be compiled by PerlApp.\n";
-	print "To run kore, execute openkore.pl instead.\n\n";
-	exit 1;
+       # We are not on Windows, so tell the user about it
+       print "\nThis file is meant to be compiled into an executable.\n";
+       print "To run kore, execute openkore.pl instead.\n\n";
+       exit 1;
 }
 
 
-# PerlApp 6's @INC doesn't contain '.', so add it
+# Some packagers may not include '.' in \@INC, so add it explicitly
 my $hasCurrentDir;
 foreach (@INC) {
 	if ($_ eq ".") {
@@ -57,7 +60,7 @@ foreach (@INC) {
 push @INC, "." if (!$hasCurrentDir);
 
 if (0) {
-	# Force PerlApp to include the following modules
+       # Force packagers (PerlApp/pp) to include the following modules
 	use FindBin;
 	require base;
 	require bytes;
@@ -106,28 +109,45 @@ if (0) {
 
 
 if ($PerlApp::TOOL eq "PerlApp") {
-	$ENV{INTERPRETER} = PerlApp::exe();
-	if (PerlApp::exe() =~ /wxstart\.exe$/i) {
-		$ENV{OPENKORE_DEFAULT_INTERFACE} = 'Wx';
-	}
+       $ENV{INTERPRETER} = PerlApp::exe();
+       if (PerlApp::exe() =~ /wxstart\.exe$/i) {
+               $ENV{OPENKORE_DEFAULT_INTERFACE} = 'Wx';
+       }
 
-	if (PerlApp::exe() =~ /vxstart\.exe$/i) {
-		$ENV{OPENKORE_DEFAULT_INTERFACE} = 'Vx';
-	}
+       if (PerlApp::exe() =~ /vxstart\.exe$/i) {
+               $ENV{OPENKORE_DEFAULT_INTERFACE} = 'Vx';
+       }
 
-	if (PerlApp::exe() =~ /winguistart\.exe$/i) {
-		$ENV{OPENKORE_DEFAULT_INTERFACE} = 'Win32';
-	}
+       if (PerlApp::exe() =~ /winguistart\.exe$/i) {
+               $ENV{OPENKORE_DEFAULT_INTERFACE} = 'Win32';
+       }
 
-	if (PerlApp::exe() =~ /tkstart\.exe$/i) {
-		$ENV{OPENKORE_DEFAULT_INTERFACE} = 'Tk';
-	}
+       if (PerlApp::exe() =~ /tkstart\.exe$/i) {
+               $ENV{OPENKORE_DEFAULT_INTERFACE} = 'Tk';
+       }
 
+} elsif (defined $ENV{PAR_PROGNAME}) {
+       $ENV{INTERPRETER} = $ENV{PAR_PROGNAME};
+       if ($ENV{PAR_PROGNAME} =~ /wxstart\.exe$/i) {
+               $ENV{OPENKORE_DEFAULT_INTERFACE} = 'Wx';
+       }
+
+       if ($ENV{PAR_PROGNAME} =~ /vxstart\.exe$/i) {
+               $ENV{OPENKORE_DEFAULT_INTERFACE} = 'Vx';
+       }
+
+       if ($ENV{PAR_PROGNAME} =~ /winguistart\.exe$/i) {
+               $ENV{OPENKORE_DEFAULT_INTERFACE} = 'Win32';
+       }
+
+       if ($ENV{PAR_PROGNAME} =~ /tkstart\.exe$/i) {
+               $ENV{OPENKORE_DEFAULT_INTERFACE} = 'Tk';
+       }
 
 } else {
-	print "Do not run start.pl directly! If you're using Perl then run openkore.pl instead!\n";
-	<STDIN>;
-	exit 1;
+       print "Do not run start.pl directly! If you're using Perl then run openkore.pl instead!\n";
+       <STDIN>;
+       exit 1;
 }
 
 my $file = "openkore.pl";
