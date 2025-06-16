@@ -1,4 +1,11 @@
 cd ..\..
 set BUILDING_WX=2
-perlapp --clean --trim Pod::Usage;I18N::Langinfo;XSTools --icon src\build\openkore.ico --lib src --norunlib --nologo --force --exe tkstart.exe start.pl --add List::Util;File::Path;Text::Balanced;Digest::MD5;Math::BigInt;Math::BigInt::Calc;Math::BigInt::CalcEmu;Math::BigInt::FastCalc;Math::BigInt::Trace;Math::BigFloat;Math::BigFloat::Trace;Math::BigRat;Math::Complex;Math::Trig;Tk;Tk::**;Win32::API;
+REM Build tkstart.exe with PAR::Packer
+pp --icon src\build\openkore.ico -I src -o tkstart.exe start.pl ^
+   -M Pod::Usage -M I18N::Langinfo -M XSTools ^
+   -M List::Util -M File::Path -M Text::Balanced -M Digest::MD5 ^
+   -M Math::BigInt -M Math::BigInt::Calc -M Math::BigInt::CalcEmu ^
+   -M Math::BigInt::FastCalc -M Math::BigInt::Trace -M Math::BigFloat ^
+   -M Math::BigFloat::Trace -M Math::BigRat -M Math::Complex -M Math::Trig ^
+   -M Tk -M "Tk::*" -M Win32::API
 pause
