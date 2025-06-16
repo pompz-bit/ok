@@ -31,9 +31,9 @@ package StarterScript;
 BEGIN {
 	if ($ENV{BUILDING_WX} == 1 && $^O eq 'MSWin32') {
 		require Wx::Perl::Packager;
-	} elsif ($ENv{BUILDING_WX} == 2 && $^O eq 'MSWin32') {
+       } elsif ($ENV{BUILDING_WX} == 2 && $^O eq 'MSWin32') {
 		require Tk;
-	} elsif ($ENv{BUILDING_WX} == 3 && $^O eq 'MSWin32') {
+       } elsif ($ENV{BUILDING_WX} == 3 && $^O eq 'MSWin32') {
 		require Win32::GUI;
 	}
 }
