@@ -27,16 +27,13 @@ sub new {
 		'0438' => ['skill_use', 'v2 a4', [qw(lv skillID targetID)]],
 		'07E4' => ['item_list_window_selected', 'v v', [qw(index amount)]],
 		'098F' => ['char_delete2_accept', 'a4 Z40 Z40 Z40', [qw(charID email1 email2 email3)]],
-		'0998' => ['send_equip', 'v2', [qw(index viewID)]],
 		'08B5' => ['pet_capture', 'a4', [qw(targetID)]],
 		'0202' => ['friend_request', 'a*', [qw(username)]],
 		'02C4' => ['party_join_request_by_name', 'Z24', [qw(playerName)]],
-		'07D7' => ['party_setting', 'V', [qw(exp)]],
 		'0811' => ['buy_bulk_openShop', 'v Z*', [qw(limit items)]],
 		'0815' => ['buy_bulk_closeShop', '', []],
 		'0817' => ['buy_bulk_request', 'a4 v', [qw(sellerID itemIndex)]],
 		'0819' => ['buy_bulk_buyer', 'v2', [qw(itemID amount)]],
-		'09F3' => ['rodex_request_items', 'C', [qw(option)]],
 		'0AC0' => ['rodex_open_mailbox', '', []],
 		'0AC1' => ['rodex_refresh_maillist', '', []],
 		'09E9' => ['rodex_close_mailbox', '', []],
@@ -128,6 +125,7 @@ sub sendTokenToServer {
     my $mac = $config{macAddress} || sprintf("%02x%02x%02x%02x%02x%02x", (int(rand(256)) & 0xFC) | 0x02, map { int(rand(256)) } 1..5);
     my $mac_hyphen_separated = join '-', $mac =~ /(..)/g;
 
+	$self->{enable_checksum} = 0;
     $net->serverDisconnect();
     $net->serverConnect($otp_ip, $otp_port);
 
@@ -147,26 +145,6 @@ sub sendTokenToServer {
     debug "Sent sendTokenLogin\n", "sendPacket", 2;
 }
 
-sub add_checksum {
-	my ($self, $msg) = @_;
-
-	my $crc = 0x00;
-	for my $byte (unpack('C*', $msg)) {
-		$crc ^= $byte;
-		for (1..8) {
-			if ($crc & 0x80) {
-				$crc = (($crc << 1) ^ 0x07) & 0xFF;
-			} else {
-				$crc = ($crc << 1) & 0xFF;
-			}
-		}
-	}
-
-	# Anexa o checksum ao final da mensagem
-	$msg .= pack('C', $crc);
-	return $msg;
-}
-
 sub sendMapLogin {
 	my ($self, $accountID, $charID, $sessionID, $sex) = @_;
 	my $msg;
@@ -182,10 +160,37 @@ sub sendMapLogin {
 		sex			=> $sex,
 	});
 
-	$msg = $self->add_checksum($msg);
 	$self->sendToServer($msg);
 
 	debug "Sent sendMapLogin\n", "sendPacket", 2;
+}
+
+sub generateTotp {
+	my $base32_seed = $config{otpSeed};  # seed
+	my $time_step = 30;  # 30 seconds interval
+	my $digits = 6;      # length of OTP
+	my $t0 = 0;          # epoch start
+	my $timestamp = time();
+	my $counter = int(($timestamp - $t0) / $time_step);
+	my $counter_bytes = pack("Q>", $counter);
+
+	require MIME::Base32;
+	my $key = MIME::Base32::decode_base32($base32_seed);
+
+	require Digest::SHA;
+	my $hmac = Digest::SHA::hmac_sha1($counter_bytes, $key);
+
+	my $offset = ord(substr($hmac, -1)) & 0x0f;
+	my $code = unpack("N", substr($hmac, $offset, 4)) & 0x7fffffff;
+	$code = $code % (10 ** $digits);
+	return $code;
+}
+
+sub sendOtp {
+	my ($self) = @_;
+	my $totp = generateTotp();
+	my $packet = pack('v a6 C', 0x0C23, $totp, 0); 
+	$self->sendToServer($packet);
 }
 
 1;

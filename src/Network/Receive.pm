@@ -34,6 +34,7 @@ use Compress::Zlib;
 use AI;
 use Globals;
 use Field;
+use InventoryList;
 #use Settings;
 use Log qw(message warning error debug);
 use FileParsers qw(updateMonsterLUT updateNPCLUT);
@@ -3933,7 +3934,13 @@ sub vender_items_list {
 
 	my $player = Actor::get($args->{venderID});
 
-	$venderItemList->clear;
+	eval {
+		$venderItemList->clear();
+	};
+	if ($@) {
+		warning "Error clearing venderItemList: $@\n";
+		$venderItemList = InventoryList->new;
+	}
 
 	my $msg = TF("%s\n" .
 		"#  Name                                      Type                           Price Amount\n",
@@ -3944,7 +3951,19 @@ sub vender_items_list {
  		@$item{qw( price amount ID type nameID identified broken upgrade cards options location sprite_id )} = unpack $item_pack, substr $args->{itemList}, $i, $item_len;
 
 		$item->{name} = itemName($item);
-		$venderItemList->add($item);
+		
+		# Check if item with same ID already exists before adding
+		if (defined $item->{ID}) {
+			my $existing_item = $venderItemList->getByID($item->{ID});
+			if (!$existing_item) {
+				$venderItemList->add($item);
+			} else {
+				debug("Skipping duplicate vender item with ID: " . unpack("V", $item->{ID}) . " (Name: $item->{name})\n", "vending", 2);
+				next; # Skip this item and continue to next iteration
+			}
+		} else {
+			$venderItemList->add($item);
+		}
 
 		debug("Item added to Vender Store: $item->{name} - $item->{price} z\n", "vending", 2);
 
@@ -4847,8 +4866,18 @@ sub quest_update_mission_hunt {
 
 		my $mission_id;
 
+		# Mission is saved as questID and server sent questID/hunt_id_cont
+		if (exists $quest->{missions} && exists $mission->{questID} && exists $mission->{hunt_id_cont}) {
+			foreach my $current_key (keys %{$quest->{missions}}) {
+				my $quest_mission = $quest->{missions}->{$current_key};
+				if (exists $quest_mission->{hunt_id_cont} && $quest_mission->{hunt_id_cont} == $mission->{hunt_id_cont}) {
+					$mission_id = $current_key;
+					last;
+				}
+			}
+		}
 		# Mission is saved as hunt_id and server sent hunt_id
-		if (exists $mission->{hunt_id} && exists $quest->{missions}->{$mission->{hunt_id}}) {
+		elsif (exists $mission->{hunt_id} && exists $quest->{missions}->{$mission->{hunt_id}}) {
 			$mission_id = $mission->{hunt_id};
 
 		# Mission is saved as mob_id and server sent mob_id
@@ -8002,6 +8031,17 @@ sub received_login_token {
 	# XKore mode 1 / 3.
 	return if ($self->{net}->version == 1);
 	my $master = $masterServers{$config{master}};
+	
+	if($args->{flag} == '9101') {
+		error T("fail to recognizing OTP(500)\n");
+		return;
+	}
+
+	if (length($args->{login_token}) == 0) {
+		$messageSender->sendOtp();
+		return;
+	}
+
 	# rathena use 0064 not 0825
 	$messageSender->sendTokenToServer($config{username}, $config{password}, $master->{master_version}, $master->{version}, $args->{login_token}, $args->{len}, $master->{OTP_ip}, $master->{OTP_port});
 }
